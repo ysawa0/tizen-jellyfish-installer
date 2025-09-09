@@ -26,7 +26,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/tizen-wgt-install-minimal
+          images: ghcr.io/${{ github.repository_owner }}/tizen-jellyfin-installer
           tags: |
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
@@ -42,4 +42,3 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64
-
