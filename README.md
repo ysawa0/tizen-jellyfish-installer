@@ -26,3 +26,12 @@ Minimal, auditable Docker image that installs a local .wgt to a Samsung TV (Tize
 - tizen not found: rebuild; build must succeed installing Tizen CLI.
 - install failed / signature: indicates certificate/signing requirement on your firmware.
 # tizen-jellyfish-installer
+
+Local installer chunks
+- To avoid GitHub’s 100MB limit, split the official Tizen Studio web CLI installer into parts and commit the parts under `./bin`.
+- Example (from the directory containing the original `.bin` file):
+  - `mkdir -p bin`
+  - `split -b 50m web-cli_Tizen_Studio_5.5_ubuntu-64.bin bin/tizen-cli.bin.part-`
+  - `sha256sum web-cli_Tizen_Studio_5.5_ubuntu-64.bin | awk '{print $1 "  installer.bin"}' > bin/installer.sha256`
+  - `git add bin/ && git commit -m "add Tizen installer chunks"`
+  - The Dockerfile reassembles `bin/tizen-cli.bin.part-*` into `/tmp/bin/installer.bin` and verifies `bin/installer.sha256` if present.

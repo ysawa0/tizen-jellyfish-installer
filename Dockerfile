@@ -17,10 +17,22 @@ COPY ./bin/ /tmp/bin/
 
 # Install Tizen Studio CLI from local installer
 RUN set -eux; \
-    installer="$(ls /tmp/bin/*.bin 2>/dev/null | head -n1 || true)"; \
+    # Reassemble installer if split into parts: *.part-001, *.part-002, ...
+    if ls /tmp/bin/*.part-* >/dev/null 2>&1; then \
+      echo "Reassembling installer from parts..."; \
+      cat $(ls -1 /tmp/bin/*.part-* | sort) > /tmp/bin/installer.bin; \
+      installer="/tmp/bin/installer.bin"; \
+    else \
+      installer="$(ls /tmp/bin/*.bin 2>/dev/null | head -n1 || true)"; \
+    fi; \
     if [ -z "$installer" ]; then \
       echo "Error: No installer .bin found in ./bin. Place the official Tizen Studio web CLI .bin there." >&2; \
       exit 1; \
+    fi; \
+    # Optional: verify checksum if provided as ./bin/installer.sha256
+    if [ -f /tmp/bin/installer.sha256 ]; then \
+      echo "Verifying installer checksum..."; \
+      (cd /tmp/bin && sha256sum -c installer.sha256); \
     fi; \
     chmod +x "$installer"; \
     echo "Running Tizen Studio CLI installer: $(basename "$installer")"; \
