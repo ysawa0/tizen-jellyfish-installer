@@ -1,7 +1,6 @@
 FROM debian:bookworm-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG TIZEN_STUDIO_URL="https://download.tizen.org/sdk/Installer/tizen-studio_5.5/web-cli_Tizen_Studio_5.5_ubuntu-64.bin"
 
 ENV TIZEN_HOME=/opt/tizen \
     PATH="/opt/tizen/tools/ide/bin:/opt/tizen/tools:$PATH"
@@ -13,24 +12,23 @@ RUN set -eux; \
       tar lsb-release gawk; \
     rm -rf /var/lib/apt/lists/*
 
-# Validate URL host and install Tizen Studio CLI headlessly
+# Copy pre-downloaded official Tizen Studio web/CLI installer from repo
+COPY ./bin/ /tmp/bin/
+
+# Install Tizen Studio CLI from local installer
 RUN set -eux; \
-    url="$TIZEN_STUDIO_URL"; \
-    host="$(printf %s "$url" | awk -F/ '{print $3}')"; \
-    case "$host" in \
-      developer.samsung.com|*.developer.samsung.com|tizen.org|*.tizen.org|download.tizen.org) ;; \
-      *) echo "Refusing to download from non-official host: $host" >&2; exit 1;; \
-    esac; \
-    curl -fL "$url" -o /tmp/tizen-cli.bin; \
-    chmod +x /tmp/tizen-cli.bin; \
-    echo "Running Tizen Studio CLI installer..."; \
-    /tmp/tizen-cli.bin --accept-license --no-java-check --path "$TIZEN_HOME" > /tmp/tizen_install.log 2>&1; \
+    installer="$(ls /tmp/bin/*.bin 2>/dev/null | head -n1 || true)"; \
+    if [ -z "$installer" ]; then \
+      echo "Error: No installer .bin found in ./bin. Place the official Tizen Studio web CLI .bin there." >&2; \
+      exit 1; \
+    fi; \
+    chmod +x "$installer"; \
+    echo "Running Tizen Studio CLI installer: $(basename "$installer")"; \
+    "$installer" --accept-license --no-java-check --path "$TIZEN_HOME" > /tmp/tizen_install.log 2>&1; \
     inst_status=$?; \
     if [ "$inst_status" -ne 0 ]; then \
       echo "Tizen Studio CLI installer failed (exit $inst_status)." >&2; \
-      echo "Installer output:" >&2; \
-      cat /tmp/tizen_install.log >&2 || true; \
-      echo "If this persists, try overriding TIZEN_STUDIO_URL to a newer official URL." >&2; \
+      echo "Installer output:" >&2; cat /tmp/tizen_install.log >&2 || true; \
       exit "$inst_status"; \
     fi; \
     # Best-effort: install Samsung TV extension if discoverable via CLI
@@ -42,7 +40,7 @@ RUN set -eux; \
       done; \
       set -e; \
     fi; \
-    # Verify CLI binaries with helpful logs on failure (avoid set -e causing early exit)
+    # Verify CLI binaries with helpful logs on failure (avoid set -e masking post-check logs)
     set +e; \
     command -v sdb >/dev/null 2>&1; sdb_ok=$?; \
     command -v tizen >/dev/null 2>&1; tizen_ok=$?; \
@@ -53,8 +51,7 @@ RUN set -eux; \
       echo "Error: tizen CLI not found on PATH." >&2; echo "Installer output:" >&2; cat /tmp/tizen_install.log >&2 || true; exit 1; \
     fi; \
     sdb version || true; tizen --version || true; \
-    set -e; \
-    rm -f /tmp/tizen-cli.bin
+    set -e
 
 COPY ./entrypoint.sh /usr/local/bin/tizen-wgt-install
 RUN chmod +x /usr/local/bin/tizen-wgt-install
