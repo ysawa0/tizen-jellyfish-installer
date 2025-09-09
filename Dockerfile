@@ -9,7 +9,8 @@ ENV TIZEN_HOME=/opt/tizen \
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-      bash curl unzip ca-certificates xz-utils jq openjdk-17-jre-headless; \
+      bash curl unzip ca-certificates xz-utils jq openjdk-17-jre-headless \
+      tar lsb-release gawk; \
     rm -rf /var/lib/apt/lists/*
 
 # Validate URL host and install Tizen Studio CLI headlessly
@@ -22,7 +23,12 @@ RUN set -eux; \
     esac; \
     curl -fL "$url" -o /tmp/tizen-cli.bin; \
     chmod +x /tmp/tizen-cli.bin; \
-    /tmp/tizen-cli.bin --accept-license --no-java-check --path "$TIZEN_HOME"; \
+    echo "Running Tizen Studio CLI installer..."; \
+    /tmp/tizen-cli.bin --accept-license --no-java-check --path "$TIZEN_HOME" || { \
+      echo "Tizen Studio CLI installer failed." >&2; \
+      echo "If this persists, try overriding TIZEN_STUDIO_URL to a newer official URL." >&2; \
+      exit 1; \
+    }; \
     # Best-effort: install Samsung TV extension if discoverable via CLI
     pm="$TIZEN_HOME/package-manager/package-manager-cli.bin"; \
     if [ -x "$pm" ]; then \
