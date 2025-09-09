@@ -24,14 +24,15 @@ RUN set -eux; \
     curl -fL "$url" -o /tmp/tizen-cli.bin; \
     chmod +x /tmp/tizen-cli.bin; \
     echo "Running Tizen Studio CLI installer..."; \
-    set -o pipefail; \
-    /tmp/tizen-cli.bin --accept-license --no-java-check --path "$TIZEN_HOME" 2>&1 | tee /tmp/tizen_install.log || { \
-      echo "Tizen Studio CLI installer failed." >&2; \
+    /tmp/tizen-cli.bin --accept-license --no-java-check --path "$TIZEN_HOME" > /tmp/tizen_install.log 2>&1; \
+    inst_status=$?; \
+    if [ "$inst_status" -ne 0 ]; then \
+      echo "Tizen Studio CLI installer failed (exit $inst_status)." >&2; \
       echo "Installer output:" >&2; \
-      tail -n +1 /tmp/tizen_install.log >&2 || true; \
+      cat /tmp/tizen_install.log >&2 || true; \
       echo "If this persists, try overriding TIZEN_STUDIO_URL to a newer official URL." >&2; \
-      exit 1; \
-    }; \
+      exit "$inst_status"; \
+    fi; \
     # Best-effort: install Samsung TV extension if discoverable via CLI
     pm="$TIZEN_HOME/package-manager/package-manager-cli.bin"; \
     if [ -x "$pm" ]; then \
