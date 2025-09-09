@@ -1,0 +1,43 @@
+FROM debian:bookworm-slim
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG TIZEN_STUDIO_URL="https://download.tizen.org/sdk/Installer/tizen-studio_5.5/web-cli_Tizen_Studio_5.5_ubuntu-64.bin"
+
+ENV TIZEN_HOME=/opt/tizen \
+    PATH="/opt/tizen/tools/ide/bin:/opt/tizen/tools:$PATH"
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      bash curl unzip ca-certificates xz-utils jq openjdk-17-jre-headless; \
+    rm -rf /var/lib/apt/lists/*
+
+# Validate URL host and install Tizen Studio CLI headlessly
+RUN set -eux; \
+    url="$TIZEN_STUDIO_URL"; \
+    host="$(printf %s "$url" | awk -F/ '{print $3}')"; \
+    case "$host" in \
+      developer.samsung.com|*.developer.samsung.com|tizen.org|*.tizen.org|download.tizen.org) ;; \
+      *) echo "Refusing to download from non-official host: $host" >&2; exit 1;; \
+    esac; \
+    curl -fL "$url" -o /tmp/tizen-cli.bin; \
+    chmod +x /tmp/tizen-cli.bin; \
+    /tmp/tizen-cli.bin --accept-license --no-java-check --path "$TIZEN_HOME"; \
+    # Best-effort: install Samsung TV extension if discoverable via CLI
+    pm="$TIZEN_HOME/package-manager/package-manager-cli.bin"; \
+    if [ -x "$pm" ]; then \
+      set +e; \
+      "$pm" list | awk -F'|' 'tolower($0) ~ /tv/ {print $1}' | while read -r pkg; do \
+        [ -n "$pkg" ] && "$pm" install --accept-license "$pkg" || true; \
+      done; \
+      set -e; \
+    fi; \
+    # Verify CLI binaries
+    command -v sdb >/dev/null; sdb version; \
+    command -v tizen >/dev/null; tizen --version; \
+    rm -f /tmp/tizen-cli.bin
+
+COPY ./entrypoint.sh /usr/local/bin/tizen-wgt-install
+RUN chmod +x /usr/local/bin/tizen-wgt-install
+
+ENTRYPOINT ["/usr/local/bin/tizen-wgt-install"]
