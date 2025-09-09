@@ -42,9 +42,19 @@ RUN set -eux; \
       done; \
       set -e; \
     fi; \
-    # Verify CLI binaries
-    command -v sdb >/dev/null; sdb version; \
-    command -v tizen >/dev/null; tizen --version; \
+    # Verify CLI binaries with helpful logs on failure
+    if ! command -v sdb >/dev/null 2>&1; then \
+      echo "Error: sdb not found on PATH." >&2; \
+      echo "Installer output:" >&2; cat /tmp/tizen_install.log >&2 || true; \
+      exit 1; \
+    fi; \
+    sdb version; \
+    if ! command -v tizen >/dev/null 2>&1; then \
+      echo "Error: tizen CLI not found on PATH." >&2; \
+      echo "Installer output:" >&2; cat /tmp/tizen_install.log >&2 || true; \
+      exit 1; \
+    fi; \
+    tizen --version; \
     rm -f /tmp/tizen-cli.bin
 
 COPY ./entrypoint.sh /usr/local/bin/tizen-wgt-install
